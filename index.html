@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Lector PDA - Datos Completos</title>
+  <title>Lector PDA - Visualización Completa</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -33,17 +33,6 @@
       border: none;
       border-bottom: 2px solid #0f0;
     }
-    #quantity {
-      display: none;
-      width: 100%;
-      padding: 15px;
-      font-size: 24px;
-      text-align: center;
-      background: #111;
-      color: #0ff;
-      border: none;
-      border-bottom: 2px solid #0ff;
-    }
     #status {
       padding: 10px;
       text-align: center;
@@ -56,7 +45,7 @@
       padding: 10px;
     }
     .result-item {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       padding: 10px;
       background: #111;
       border-left: 3px solid #0f0;
@@ -66,7 +55,7 @@
       margin-bottom: 5px;
     }
     .col-header {
-      min-width: 100px;
+      min-width: 120px;
       font-weight: bold;
       color: #4CAF50;
     }
@@ -94,12 +83,6 @@
       padding: 5px;
       font-size: 12px;
     }
-    .quantity-info {
-      text-align: center;
-      padding: 5px;
-      color: #0ff;
-      font-size: 14px;
-    }
     .siesa-item {
       margin-top: 10px;
       padding: 8px;
@@ -110,16 +93,15 @@
       font-weight: bold;
       color: #0ff;
       margin-bottom: 5px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 3px;
     }
-    .toggle-details {
-      color: #0af;
-      text-decoration: underline;
-      cursor: pointer;
-      margin-top: 5px;
-      font-size: 12px;
+    .json-value {
+      word-break: break-all;
     }
-    .hidden {
-      display: none;
+    .no-data {
+      color: #888;
+      font-style: italic;
     }
   </style>
 </head>
@@ -127,7 +109,6 @@
   <div id="scanner">
     <div id="offline-banner" class="offline-banner" style="display: none;">MODO OFFLINE - DATOS CACHEADOS</div>
     <input type="text" id="barcode" autofocus placeholder="ESCANEAR CÓDIGO">
-    <input type="number" id="quantity" placeholder="INGRESE CANTIDAD" min="1" step="1">
     <div id="status">INICIANDO SISTEMA...</div>
     <div class="data-stats" id="data-stats">Cargando datos...</div>
     <div id="results"></div>
@@ -138,14 +119,12 @@
     const CONFIG = {
       API_URL: "https://script.google.com/macros/s/AKfycbzf013uqUkPD62derU15nq-nXOYI6Y8KNi-e7Upnj6lOzoTOoGyT4XwAaDxHbpgLJWS_Q/exec",
       CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
-      VERSION: "2.0.0"
+      VERSION: "2.1.0"
     };
 
     // Variables globales
     let database = [];
-    let currentItem = null;
     const barcodeInput = document.getElementById('barcode');
-    const quantityInput = document.getElementById('quantity');
     const statusDiv = document.getElementById('status');
     const resultsDiv = document.getElementById('results');
     const dataStats = document.getElementById('data-stats');
@@ -232,13 +211,8 @@
     function setupEventListeners() {
       // Foco persistente
       function enforceFocus() {
-        const activeElement = document.activeElement;
-        if (activeElement !== barcodeInput && activeElement !== quantityInput) {
-          if (quantityInput.style.display === 'block') {
-            quantityInput.focus();
-          } else {
-            barcodeInput.focus();
-          }
+        if (document.activeElement !== barcodeInput) {
+          barcodeInput.focus();
         }
         setTimeout(enforceFocus, 50);
       }
@@ -254,9 +228,7 @@
         const searchTime = Date.now() - startTime;
         
         if (result) {
-          currentItem = result;
-          displayResult(result);
-          requestQuantity();
+          displayFullResult(result);
           playBeep(true);
           statusDiv.textContent = `REGISTRO ENCONTRADO (${searchTime}ms)`;
         } else {
@@ -271,25 +243,6 @@
         }, 50);
       });
       
-      // Manejar entrada de cantidad
-      quantityInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          confirmQuantity();
-        } else if (e.key === 'Escape') {
-          cancelQuantity();
-        }
-      });
-      
-      // Bloquear interacciones no deseadas
-      document.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (quantityInput.style.display === 'block') {
-          quantityInput.focus();
-        } else {
-          barcodeInput.focus();
-        }
-      }, true);
-      
       // Manejar cambios en la conexión
       window.addEventListener('online', () => {
         fetchData();
@@ -302,138 +255,67 @@
       });
     }
 
-    function requestQuantity() {
-      barcodeInput.style.display = 'none';
-      quantityInput.style.display = 'block';
-      quantityInput.value = '1';
-      quantityInput.focus();
-      quantityInput.select();
-    }
-
-    function confirmQuantity() {
-      const quantity = parseInt(quantityInput.value) || 1;
-      
-      // Aquí puedes hacer algo con la cantidad y el item actual
-      // Por ejemplo, agregar a un listado o enviar a un servidor
-      console.log('Item:', currentItem, 'Cantidad:', quantity);
-      
-      // Mostrar confirmación
+    function displayFullResult(item) {
       resultsDiv.innerHTML = `
         <div class="result-item">
-          ${displayResultHTML(currentItem)}
-          <div class="result-row">
-            <div class="col-header">CANTIDAD:</div>
-            <div>${quantity}</div>
-          </div>
-          <div class="quantity-info">Cantidad registrada correctamente</div>
+          ${displayItemData(item, 'Datos Principales')}
         </div>
       `;
+    }
+
+    function displayItemData(data, title = 'Datos') {
+      let html = `<div class="siesa-header">${title}</div>`;
       
-      // Volver al modo de escaneo
-      resetToScanMode();
-      playBeep(true);
-    }
-
-    function cancelQuantity() {
-      resetToScanMode();
-      resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
-    }
-
-    function resetToScanMode() {
-      quantityInput.style.display = 'none';
-      barcodeInput.style.display = 'block';
-      barcodeInput.focus();
-      currentItem = null;
-    }
-
-    function displayResult(item) {
-      resultsDiv.innerHTML = `
-        <div class="result-item">
-          ${displayResultHTML(item)}
-          <div class="quantity-info">Ingrese la cantidad y presione ENTER</div>
-        </div>
-      `;
-    }
-
-    function displayResultHTML(item) {
-      let html = `
-        <div class="result-row">
-          <div class="col-header">DOCUMENTO:</div>
-          <div>${item.columnaA || 'N/A'}</div>
-        </div>
-        <div class="result-row">
-          <div class="col-header">REFERENCIA:</div>
-          <div>${item.columnaG || 'N/A'}</div>
-        </div>
-        <div class="result-row">
-          <div class="col-header">ID:</div>
-          <div>${item.id || 'N/A'}</div>
-        </div>
-      `;
-      
-      if (item.datosSiesa && item.datosSiesa.length > 0) {
-        html += `<div class="result-row">
-          <div class="col-header">DATOS SIESA:</div>
-          <div>${item.datosSiesa.length} registros</div>
-        </div>`;
+      // Mostrar propiedades directas del objeto
+      for (const key in data) {
+        if (key === 'datosSiesa') continue; // Manejamos esto aparte
         
-        // Mostrar solo el primer registro de Siesa por defecto
-        const firstSiesa = item.datosSiesa[0];
         html += `
-          <div class="siesa-item">
-            <div class="siesa-header">Documento Siesa #1:</div>
-            <div class="result-row">
-              <div class="col-header">Código:</div>
-              <div>${firstSiesa.codigo || 'N/A'}</div>
-            </div>
-            <div class="result-row">
-              <div class="col-header">Estado:</div>
-              <div>${firstSiesa.estado || 'N/A'}</div>
-            </div>
-            <div class="result-row">
-              <div class="col-header">Cliente:</div>
-              <div>${firstSiesa.cliente || 'N/A'}</div>
-            </div>
-            <div class="toggle-details" onclick="toggleAllSiesaDetails(this)">Mostrar todos los registros Siesa</div>
+          <div class="result-row">
+            <div class="col-header">${key}:</div>
+            <div class="json-value">${formatValue(data[key])}</div>
           </div>
         `;
+      }
+      
+      // Mostrar datosSiesa si existen
+      if (data.datosSiesa && Array.isArray(data.datosSiesa) && data.datosSiesa.length > 0) {
+        html += `<div class="siesa-header">Documentos Siesa (${data.datosSiesa.length})</div>`;
         
-        // Ocultar los demás registros Siesa
-        for (let i = 1; i < item.datosSiesa.length; i++) {
-          const siesa = item.datosSiesa[i];
-          html += `
-            <div class="siesa-item hidden" data-siesa-index="${i}">
-              <div class="siesa-header">Documento Siesa #${i + 1}:</div>
+        data.datosSiesa.forEach((siesa, index) => {
+          html += `<div class="siesa-item">`;
+          html += `<div class="siesa-header">Documento #${index + 1}</div>`;
+          
+          for (const key in siesa) {
+            html += `
               <div class="result-row">
-                <div class="col-header">Código:</div>
-                <div>${siesa.codigo || 'N/A'}</div>
+                <div class="col-header">${key}:</div>
+                <div class="json-value">${formatValue(siesa[key])}</div>
               </div>
-              <div class="result-row">
-                <div class="col-header">Estado:</div>
-                <div>${siesa.estado || 'N/A'}</div>
-              </div>
-              <div class="result-row">
-                <div class="col-header">Cliente:</div>
-                <div>${siesa.cliente || 'N/A'}</div>
-              </div>
-              <div class="result-row">
-                <div class="col-header">Referencia:</div>
-                <div>${siesa.referencia || 'N/A'}</div>
-              </div>
-              <div class="result-row">
-                <div class="col-header">Valor Total:</div>
-                <div>${siesa.sumaValor1 ? siesa.sumaValor1.toLocaleString() : 'N/A'}</div>
-              </div>
-              <div class="result-row">
-                <div class="col-header">Cantidad:</div>
-                <div>${siesa.sumaValor3 || 'N/A'}</div>
-              </div>
-            </div>
-          `;
-        }
+            `;
+          }
+          
+          html += `</div>`;
+        });
       }
       
       return html;
+    }
+
+    function formatValue(value) {
+      if (value === null || value === undefined) {
+        return '<span class="no-data">N/A</span>';
+      }
+      
+      if (typeof value === 'object') {
+        return JSON.stringify(value);
+      }
+      
+      if (typeof value === 'number' && value > 1000) {
+        return value.toLocaleString();
+      }
+      
+      return value.toString();
     }
 
     function showError(barcode) {
@@ -488,7 +370,7 @@
         if (navigator.onLine) {
           fetchData();
         }
-      }, 60 * 60 * 1000);
+      }, 60 * 60 * 1000); // Actualizar cada hora
     }
 
     function clearOldCache() {
@@ -500,25 +382,6 @@
         }
       }
     }
-
-    // Función global para mostrar/ocultar todos los registros Siesa
-    window.toggleAllSiesaDetails = function(element) {
-      const container = element.closest('.result-item');
-      const hiddenItems = container.querySelectorAll('.siesa-item.hidden');
-      const isShowingAll = hiddenItems.length > 0 && hiddenItems[0].style.display !== 'none';
-      
-      if (isShowingAll) {
-        hiddenItems.forEach(item => {
-          item.classList.add('hidden');
-        });
-        element.textContent = 'Mostrar todos los registros Siesa';
-      } else {
-        hiddenItems.forEach(item => {
-          item.classList.remove('hidden');
-        });
-        element.textContent = 'Ocultar registros Siesa';
-      }
-    };
   </script>
 </body>
 </html>
