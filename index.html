@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Lector PDA - Columnas A-E</title>
+  <title>Lector PDA - Datos Completos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -66,7 +66,7 @@
       margin-bottom: 5px;
     }
     .col-header {
-      min-width: 80px;
+      min-width: 100px;
       font-weight: bold;
       color: #4CAF50;
     }
@@ -100,6 +100,27 @@
       color: #0ff;
       font-size: 14px;
     }
+    .siesa-item {
+      margin-top: 10px;
+      padding: 8px;
+      background: #222;
+      border-left: 2px solid #0ff;
+    }
+    .siesa-header {
+      font-weight: bold;
+      color: #0ff;
+      margin-bottom: 5px;
+    }
+    .toggle-details {
+      color: #0af;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-top: 5px;
+      font-size: 12px;
+    }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -115,9 +136,9 @@
   <script>
     // Configuración
     const CONFIG = {
-      API_URL: "https://script.google.com/macros/s/AKfycbwQwSPIhOhoPcGHjAW5VOXNQISI9Y-mqk31lXCr3E8XA0Nt72CsVbngPKZ0VJcPA4ZygA/exec",
+      API_URL: "https://script.google.com/macros/s/AKfycbzf013uqUkPD62derU15nq-nXOYI6Y8KNi-e7Upnj6lOzoTOoGyT4XwAaDxHbpgLJWS_Q/exec",
       CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
-      VERSION: "1.0.0"
+      VERSION: "2.0.0"
     };
 
     // Variables globales
@@ -177,18 +198,17 @@
         if (!response.ok) throw new Error('Error en la respuesta del servidor');
         
         const apiData = await response.json();
-        let processedData = [];
         
-        if (apiData.data && Array.isArray(apiData.data)) {
-          processedData = apiData.data.map(item => [item.columnaA, item.columnaG, item.columnaI]);
-        } else if (Array.isArray(apiData)) {
-          processedData = apiData;
-        } else {
+        if (!apiData.success) {
+          throw new Error('La API reportó un error');
+        }
+        
+        if (!apiData.data || !Array.isArray(apiData.data)) {
           throw new Error('Formato de datos desconocido');
         }
         
-        database = processedData;
-        cacheData(processedData);
+        database = apiData.data;
+        cacheData(database);
         
         statusDiv.textContent = "SISTEMA ACTUALIZADO Y LISTO";
         dataStats.textContent = `${database.length} registros cargados (${new Date().toLocaleTimeString()})`;
@@ -230,7 +250,7 @@
         if (code.length < 3) return;
         
         const startTime = Date.now();
-        const result = database.find(row => row[0] && row[0].toString() === code);
+        const result = database.find(item => item.columnaA && item.columnaA.toString() === code);
         const searchTime = Date.now() - startTime;
         
         if (result) {
@@ -326,26 +346,91 @@
       currentItem = null;
     }
 
-    function displayResult(rowData) {
+    function displayResult(item) {
       resultsDiv.innerHTML = `
         <div class="result-item">
-          ${displayResultHTML(rowData)}
+          ${displayResultHTML(item)}
           <div class="quantity-info">Ingrese la cantidad y presione ENTER</div>
         </div>
       `;
     }
 
-    function displayResultHTML(rowData) {
-      const headers = ["DOC", "REF", "LOT"];
-      let html = '';
+    function displayResultHTML(item) {
+      let html = `
+        <div class="result-row">
+          <div class="col-header">DOCUMENTO:</div>
+          <div>${item.columnaA || 'N/A'}</div>
+        </div>
+        <div class="result-row">
+          <div class="col-header">REFERENCIA:</div>
+          <div>${item.columnaG || 'N/A'}</div>
+        </div>
+        <div class="result-row">
+          <div class="col-header">ID:</div>
+          <div>${item.id || 'N/A'}</div>
+        </div>
+      `;
       
-      for (let i = 0; i < 3; i++) {
+      if (item.datosSiesa && item.datosSiesa.length > 0) {
+        html += `<div class="result-row">
+          <div class="col-header">DATOS SIESA:</div>
+          <div>${item.datosSiesa.length} registros</div>
+        </div>`;
+        
+        // Mostrar solo el primer registro de Siesa por defecto
+        const firstSiesa = item.datosSiesa[0];
         html += `
-          <div class="result-row">
-            <div class="col-header">${headers[i]}:</div>
-            <div>${rowData[i] || 'N/A'}</div>
+          <div class="siesa-item">
+            <div class="siesa-header">Documento Siesa #1:</div>
+            <div class="result-row">
+              <div class="col-header">Código:</div>
+              <div>${firstSiesa.codigo || 'N/A'}</div>
+            </div>
+            <div class="result-row">
+              <div class="col-header">Estado:</div>
+              <div>${firstSiesa.estado || 'N/A'}</div>
+            </div>
+            <div class="result-row">
+              <div class="col-header">Cliente:</div>
+              <div>${firstSiesa.cliente || 'N/A'}</div>
+            </div>
+            <div class="toggle-details" onclick="toggleAllSiesaDetails(this)">Mostrar todos los registros Siesa</div>
           </div>
         `;
+        
+        // Ocultar los demás registros Siesa
+        for (let i = 1; i < item.datosSiesa.length; i++) {
+          const siesa = item.datosSiesa[i];
+          html += `
+            <div class="siesa-item hidden" data-siesa-index="${i}">
+              <div class="siesa-header">Documento Siesa #${i + 1}:</div>
+              <div class="result-row">
+                <div class="col-header">Código:</div>
+                <div>${siesa.codigo || 'N/A'}</div>
+              </div>
+              <div class="result-row">
+                <div class="col-header">Estado:</div>
+                <div>${siesa.estado || 'N/A'}</div>
+              </div>
+              <div class="result-row">
+                <div class="col-header">Cliente:</div>
+                <div>${siesa.cliente || 'N/A'}</div>
+              </div>
+              <div class="result-row">
+                <div class="col-header">Referencia:</div>
+                <div>${siesa.referencia || 'N/A'}</div>
+              </div>
+              <div class="result-row">
+                <div class="col-header">Valor Total:</div>
+                <div>${siesa.sumaValor1 ? siesa.sumaValor1.toLocaleString() : 'N/A'}</div>
+              </div>
+              <div class="result-row">
+                <div class="col-header">Cantidad:</div>
+                <div>${siesa.sumaValor3 || 'N/A'}</div>
+              </div>
+            </div>
+          `;
+        }
       }
       
       return html;
@@ -373,7 +458,6 @@
       }
     }
 
-    // Resto de funciones (cacheData, updateUIWithCachedData, setupDataRefresh) igual que antes
     function cacheData(data) {
       const cache = {
         data: data,
@@ -406,6 +490,35 @@
         }
       }, 60 * 60 * 1000);
     }
+
+    function clearOldCache() {
+      // Eliminar datos antiguos para liberar espacio
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (key.startsWith('pdaScannerCache')) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // Función global para mostrar/ocultar todos los registros Siesa
+    window.toggleAllSiesaDetails = function(element) {
+      const container = element.closest('.result-item');
+      const hiddenItems = container.querySelectorAll('.siesa-item.hidden');
+      const isShowingAll = hiddenItems.length > 0 && hiddenItems[0].style.display !== 'none';
+      
+      if (isShowingAll) {
+        hiddenItems.forEach(item => {
+          item.classList.add('hidden');
+        });
+        element.textContent = 'Mostrar todos los registros Siesa';
+      } else {
+        hiddenItems.forEach(item => {
+          item.classList.remove('hidden');
+        });
+        element.textContent = 'Ocultar registros Siesa';
+      }
+    };
   </script>
 </body>
 </html>
