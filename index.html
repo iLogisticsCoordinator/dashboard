@@ -246,7 +246,7 @@
     const CONFIG = {
       API_URL: "https://script.google.com/macros/s/AKfycbzf013uqUkPD62derU15nq-nXOYI6Y8KNi-e7Upnj6lOzoTOoGyT4XwAaDxHbpgLJWS_Q/exec",
       CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
-      VERSION: "3.0.0"
+      VERSION: "3.1.0"
     };
 
     // Variables globales
@@ -257,8 +257,12 @@
     const dataStats = document.getElementById('data-stats');
     const offlineBanner = document.getElementById('offline-banner');
 
+    // Sonidos pre-cargados
+    let successSound, errorSound;
+    
     // Iniciar aplicación
     document.addEventListener('DOMContentLoaded', () => {
+      initSounds();
       const cachedData = getCachedData();
       
       if (cachedData) {
@@ -279,6 +283,92 @@
       setupEventListeners();
       setupDataRefresh();
     });
+
+    function initSounds() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Configurar sonido de éxito (más fuerte y potente)
+        successSound = () => {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          
+          osc1.type = "sine";
+          osc1.frequency.value = 800;
+          
+          osc2.type = "square";
+          osc2.frequency.value = 1200;
+          
+          gainNode.gain.value = 0.5; // Volumen más alto
+          
+          osc1.connect(gainNode);
+          osc2.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          osc1.start();
+          osc2.start();
+          osc1.stop(ctx.currentTime + 0.3);
+          osc2.stop(ctx.currentTime + 0.3);
+          
+          // Añadir un pequeño "click" al final
+          setTimeout(() => {
+            const clickOsc = ctx.createOscillator();
+            const clickGain = ctx.createGain();
+            
+            clickOsc.type = "square";
+            clickOsc.frequency.value = 1800;
+            
+            clickGain.gain.value = 0.7;
+            clickGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+            
+            clickOsc.connect(clickGain);
+            clickGain.connect(ctx.destination);
+            
+            clickOsc.start();
+            clickOsc.stop(ctx.currentTime + 0.05);
+          }, 300);
+        };
+        
+        // Configurar sonido de error (más grave y potente)
+        errorSound = () => {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          
+          osc1.type = "sawtooth";
+          osc1.frequency.value = 300;
+          
+          osc2.type = "sine";
+          osc2.frequency.value = 150;
+          
+          gainNode.gain.value = 0.6; // Volumen más alto
+          
+          osc1.connect(gainNode);
+          osc2.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          osc1.start();
+          osc2.start();
+          
+          // Efecto de caída en la frecuencia
+          osc1.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.5);
+          osc2.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.5);
+          
+          // Efecto de fade out
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          
+          osc1.stop(ctx.currentTime + 0.5);
+          osc2.stop(ctx.currentTime + 0.5);
+        };
+        
+      } catch (e) {
+        console.error("Error al inicializar sonidos:", e);
+        // Fallback a sonidos simples si Web Audio API no está disponible
+        successSound = () => { console.log("Beep! (éxito)"); };
+        errorSound = () => { console.log("Buzz! (error)"); };
+      }
+    }
 
     function showOfflineMode() {
       offlineBanner.style.display = 'block';
@@ -324,6 +414,9 @@
         dataStats.textContent = `${database.length} registros cargados | ${new Date().toLocaleTimeString()}`;
         resultsDiv.innerHTML = '<div class="loading">Escanea un código para consultar información</div>';
         offlineBanner.style.display = 'none';
+        
+        // Sonido de confirmación al cargar datos
+        if (successSound) successSound();
       } catch (error) {
         console.error("Error al actualizar datos:", error);
         
@@ -331,6 +424,7 @@
           statusDiv.innerHTML = '<span style="color: var(--danger)">ERROR AL CARGAR DATOS</span>';
           dataStats.textContent = error.message;
           resultsDiv.innerHTML = `<div class="error">No se pudo cargar la base de datos: ${error.message}</div>`;
+          if (errorSound) errorSound();
         } else {
           statusDiv.textContent = "SISTEMA LISTO (DATOS NO ACTUALIZADOS)";
           dataStats.textContent = `${database.length} registros | Versión cacheada`;
@@ -360,11 +454,11 @@
         
         if (result) {
           displayFullResult(result);
-          playBeep(true);
+          if (successSound) successSound();
           statusDiv.textContent = `REGISTRO ENCONTRADO (${searchTime}ms)`;
         } else {
           showError(code);
-          playBeep(false);
+          if (errorSound) errorSound();
           statusDiv.textContent = `NO ENCONTRADO (${searchTime}ms)`;
         }
         
@@ -471,26 +565,6 @@
           <i class="fas fa-times-circle"></i> CÓDIGO NO ENCONTRADO: ${barcode}
         </div>
       `;
-    }
-
-    function playBeep(success) {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.value = success ? 800 : 400;
-        
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = 0.1;
-        
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + (success ? 0.2 : 0.4));
-      } catch (e) {
-        console.log("Audio no soportado:", e);
-      }
     }
 
     function cacheData(data) {
