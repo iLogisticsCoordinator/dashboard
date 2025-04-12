@@ -2,307 +2,363 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Lector PDA - Columnas A-E</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#121212">
+  
+  <title>Lector PDA Profesional</title>
+  
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a56d4;
+      --secondary: #3f37c9;
+      --dark: #121212;
+      --light: #f8f9fa;
+      --success: #4cc9f0;
+      --danger: #f72585;
+      --warning: #f8961e;
+      --gray: #adb5bd;
+    }
+    
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      background: #000;
-      color: #0f0;
-      touch-action: manipulation;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
     }
-    #scanner {
+    
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
+      background-color: var(--dark);
+      color: var(--light);
+      touch-action: manipulation;
+    }
+    
+    #app-container {
       display: flex;
       flex-direction: column;
       height: 100vh;
+      position: relative;
     }
+    
+    /* Header */
+    .app-header {
+      background-color: var(--dark);
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
+    
+    .app-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--light);
+    }
+    
+    /* Scanner Section */
+    .scanner-section {
+      padding: 1rem;
+      background-color: #1e1e1e;
+      border-bottom: 1px solid #333;
+    }
+    
     #barcode {
       width: 100%;
-      padding: 15px;
-      font-size: 24px;
-      text-align: center;
-      background: #111;
-      color: #0f0;
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      background-color: #2b2b2b;
+      color: var(--light);
+      margin-bottom: 0.5rem;
+    }
+    
+    #barcode:focus {
+      outline: none;
+      border-color: var(--success);
+      box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.3);
+    }
+    
+    /* Quantity Input */
+    .quantity-container {
+      display: flex;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    
+    #quantity {
+      flex: 1;
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      background-color: #2b2b2b;
+      color: var(--light);
+      margin-right: 0.5rem;
+    }
+    
+    .quantity-btn {
+      padding: 1rem;
+      background-color: var(--primary);
+      color: white;
       border: none;
-      border-bottom: 2px solid #0f0;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
     }
+    
+    .quantity-btn:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    /* Status */
     #status {
-      padding: 10px;
+      padding: 0.8rem;
       text-align: center;
-      background: #222;
-      font-size: 16px;
+      font-size: 0.9rem;
+      background-color: #252525;
+      color: var(--gray);
+      border-bottom: 1px solid #333;
     }
+    
+    /* Results */
     #results {
       flex: 1;
       overflow-y: auto;
-      padding: 10px;
+      padding: 1rem;
+      background-color: var(--dark);
     }
+    
     .result-item {
-      margin-bottom: 10px;
-      padding: 10px;
-      background: #111;
-      border-left: 3px solid #0f0;
+      background-color: #252525;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border-left: 4px solid var(--primary);
     }
+    
     .result-row {
       display: flex;
-      margin-bottom: 5px;
+      margin-bottom: 0.5rem;
     }
+    
     .col-header {
       min-width: 80px;
-      font-weight: bold;
-      color: #4CAF50;
+      font-weight: 600;
+      color: var(--primary);
     }
-    .error {
-      color: #f00;
-      text-align: center;
-      padding: 15px;
+    
+    /* Loading Spinner */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
     }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      color: var(--light);
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+    
+    /* Stats */
     .data-stats {
+      padding: 0.8rem;
       text-align: center;
-      padding: 5px;
-      color: #666;
-      font-size: 14px;
-      background: #222;
+      background-color: #252525;
+      color: var(--gray);
+      font-size: 0.8rem;
+      border-top: 1px solid #333;
     }
-    .loading {
-      color: #ff0;
-      text-align: center;
-      padding: 15px;
-    }
-    .offline-banner {
-      background: #f80;
-      color: #000;
-      text-align: center;
-      padding: 5px;
-      font-size: 12px;
+    
+    /* Responsive */
+    @media (min-width: 768px) {
+      #app-container {
+        max-width: 600px;
+        margin: 0 auto;
+        border-left: 1px solid #333;
+        border-right: 1px solid #333;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="scanner">
-    <div id="offline-banner" class="offline-banner" style="display: none;">MODO OFFLINE - DATOS CACHEADOS</div>
-    <input type="text" id="barcode" autofocus placeholder="ESCANEAR CÓDIGO">
-    <div id="status">INICIANDO SISTEMA...</div>
-    <div class="data-stats" id="data-stats">Cargando datos...</div>
+  <div id="app-container">
+    <div class="app-header">
+      <div class="app-title">Lector PDA Profesional</div>
+    </div>
+    
+    <div class="scanner-section">
+      <input type="text" id="barcode" autofocus placeholder="ESCANEAR CÓDIGO">
+      
+      <div class="quantity-container" id="quantity-container" style="display: none;">
+        <input type="number" id="quantity" min="1" value="1" placeholder="Cantidad">
+        <button class="quantity-btn" id="confirm-btn">Confirmar</button>
+      </div>
+    </div>
+    
+    <div id="status">SISTEMA INICIANDO...</div>
+    
     <div id="results"></div>
+    
+    <div class="data-stats" id="data-stats"></div>
+    
+    <!-- Loading Spinner -->
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Cargando datos...</div>
+    </div>
   </div>
 
   <script>
-    // Configuración
-    const CONFIG = {
-      API_URL: "https://script.google.com/macros/s/AKfycbwQwSPIhOhoPcGHjAW5VOXNQISI9Y-mqk31lXCr3E8XA0Nt72CsVbngPKZ0VJcPA4ZygA/exec",
-      CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
-      VERSION: "1.0.0" // Incrementar cuando hagas cambios importantes
-    };
-
     // Variables globales
-    let database = [];
+    const database = <?!= data ?>;
     const barcodeInput = document.getElementById('barcode');
     const statusDiv = document.getElementById('status');
     const resultsDiv = document.getElementById('results');
     const dataStats = document.getElementById('data-stats');
-    const offlineBanner = document.getElementById('offline-banner');
-
-    // Iniciar aplicación
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const quantityContainer = document.getElementById('quantity-container');
+    const quantityInput = document.getElementById('quantity');
+    const confirmBtn = document.getElementById('confirm-btn');
+    
+    let currentScannedItem = null;
+    
+    // Mostrar spinner al cargar
     document.addEventListener('DOMContentLoaded', () => {
-      // Verificar si hay datos cacheados válidos
-      const cachedData = getCachedData();
-      
-      if (cachedData) {
-        database = cachedData.data;
-        updateUIWithCachedData(cachedData);
-        
-        // Mostrar banner si estamos offline
-        if (!navigator.onLine) {
-          offlineBanner.style.display = 'block';
-        }
-      }
-      
-      // Intentar actualizar los datos si hay conexión
-      if (navigator.onLine) {
-        fetchData();
-      } else {
-        statusDiv.textContent = "MODO OFFLINE - USANDO DATOS CACHEADOS";
-      }
-      
-      // Configurar listeners
-      setupEventListeners();
-      
-      // Configurar actualización periódica cuando hay conexión
-      setupDataRefresh();
-    });
-
-    // Funciones principales
-    function getCachedData() {
-      const cache = localStorage.getItem('pdaScannerCache');
-      if (!cache) return null;
-      
-      try {
-        const parsed = JSON.parse(cache);
-        
-        // Verificar si el cache está expirado
-        if (Date.now() - parsed.timestamp > CONFIG.CACHE_TTL) {
-          return null;
-        }
-        
-        return parsed;
-      } catch (e) {
-        console.error("Error al parsear cache:", e);
-        return null;
-      }
-    }
-
-    async function fetchData() {
-      statusDiv.textContent = "ACTUALIZANDO DATOS...";
-      dataStats.textContent = "Conectando con el servidor...";
-      
-      try {
-        const response = await fetch(CONFIG.API_URL + '?t=' + Date.now()); // Cache busting
-        if (!response.ok) throw new Error('Error en la respuesta del servidor');
-        
-        const apiData = await response.json();
-        
-        // Procesar datos según estructura esperada
-        let processedData = [];
-        if (apiData.data && Array.isArray(apiData.data)) {
-          processedData = apiData.data.map(item => [item.columnaA, item.columnaG, item.columnaI]);
-        } else if (Array.isArray(apiData)) {
-          processedData = apiData;
-        } else {
-          throw new Error('Formato de datos desconocido');
-        }
-        
-        // Actualizar base de datos y cache
-        database = processedData;
-        cacheData(processedData);
-        
-        // Actualizar UI
-        statusDiv.textContent = "SISTEMA ACTUALIZADO Y LISTO";
-        dataStats.textContent = `${database.length} registros cargados (${new Date().toLocaleTimeString()})`;
-        resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
-        
-        // Ocultar banner offline si estaba visible
-        offlineBanner.style.display = 'none';
-      } catch (error) {
-        console.error("Error al actualizar datos:", error);
-        
-        // Si no hay datos cacheados, mostrar error
-        if (database.length === 0) {
-          statusDiv.innerHTML = '<span class="error">ERROR AL CARGAR DATOS</span>';
-          dataStats.textContent = error.message;
-          resultsDiv.innerHTML = `<div class="error">No se pudo cargar la base de datos: ${error.message}</div>`;
-        } else {
-          statusDiv.textContent = "SISTEMA LISTO (DATOS NO ACTUALIZADOS)";
-          dataStats.textContent = `${database.length} registros (versión cacheada)`;
-          offlineBanner.style.display = 'block';
-        }
-      }
-    }
-
-    function cacheData(data) {
-      const cache = {
-        data: data,
-        timestamp: Date.now(),
-        version: CONFIG.VERSION
-      };
-      
-      try {
-        localStorage.setItem('pdaScannerCache', JSON.stringify(cache));
-      } catch (e) {
-        console.error("Error al guardar en cache:", e);
-        // Si el localStorage está lleno, intentar limpiar datos viejos
-        if (e.name === 'QuotaExceededError') {
-          clearOldCache();
-          cacheData(data); // Intentar nuevamente
-        }
-      }
-    }
-
-    function clearOldCache() {
-      // Eliminar solo los items relacionados con esta app
-      localStorage.removeItem('pdaScannerCache');
-    }
-
-    function updateUIWithCachedData(cachedData) {
-      const lastUpdated = new Date(cachedData.timestamp).toLocaleString();
-      statusDiv.textContent = "SISTEMA LISTO";
-      dataStats.textContent = `${cachedData.data.length} registros (última actualización: ${lastUpdated})`;
-      resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
-    }
-
-    function setupEventListeners() {
-      // Foco persistente
-      function enforceFocus() {
-        if (document.activeElement !== barcodeInput) {
+      setTimeout(() => {
+        loadingOverlay.style.display = 'none';
+        if (database && database.length > 0) {
+          statusDiv.textContent = "SISTEMA LISTO PARA ESCANEAR";
+          dataStats.textContent = `${database.length} registros cargados`;
           barcodeInput.focus();
+        } else {
+          statusDiv.innerHTML = '<span style="color: var(--danger)">ERROR: NO SE PUDO CARGAR LOS DATOS</span>';
+          dataStats.textContent = "Verifique la conexión y los permisos";
         }
-        setTimeout(enforceFocus, 50);
+      }, 1500); // Simular tiempo de carga
+    });
+    
+    // Foco persistente
+    function enforceFocus() {
+      if (document.activeElement !== barcodeInput && !quantityContainer.style.display === 'flex') {
+        barcodeInput.focus();
       }
-      enforceFocus();
+      setTimeout(enforceFocus, 100);
+    }
+    enforceFocus();
+    
+    // Detectar escaneo
+    barcodeInput.addEventListener('input', function() {
+      const code = this.value.trim();
+      if (code.length < 3) return;
       
-      // Detectar escaneo
-      barcodeInput.addEventListener('input', function() {
-        const code = this.value.trim();
-        if (code.length < 3) return;
-        
-        // Búsqueda instantánea
+      showLoading();
+      
+      // Simular tiempo de búsqueda
+      setTimeout(() => {
         const startTime = Date.now();
         const result = database.find(row => row[0] && row[0].toString() === code);
         const searchTime = Date.now() - startTime;
         
         if (result) {
+          currentScannedItem = result;
           displayResult(result);
           playBeep(true);
           statusDiv.textContent = `REGISTRO ENCONTRADO (${searchTime}ms)`;
+          showQuantityInput();
         } else {
           showError(code);
           playBeep(false);
           statusDiv.textContent = `NO ENCONTRADO (${searchTime}ms)`;
         }
         
-        // Preparar para nuevo escaneo
-        setTimeout(() => {
-          this.value = '';
-          this.focus();
-        }, 50);
-      });
-      
-      // Bloquear interacciones no deseadas
-      document.addEventListener('click', (e) => {
-        e.preventDefault();
+        hideLoading();
+        this.value = '';
+      }, 300);
+    });
+    
+    // Confirmar cantidad
+    confirmBtn.addEventListener('click', () => {
+      const quantity = parseInt(quantityInput.value) || 1;
+      if (currentScannedItem) {
+        displayResultWithQuantity(currentScannedItem, quantity);
+        quantityContainer.style.display = 'none';
         barcodeInput.focus();
-      }, true);
-      
-      // Manejar cambios en la conexión
-      window.addEventListener('online', () => {
-        fetchData();
-        offlineBanner.style.display = 'none';
-      });
-      
-      window.addEventListener('offline', () => {
-        offlineBanner.style.display = 'block';
-        statusDiv.textContent = "MODO OFFLINE - USANDO DATOS CACHEADOS";
-      });
+      }
+    });
+    
+    // Mostrar input de cantidad
+    function showQuantityInput() {
+      quantityContainer.style.display = 'flex';
+      quantityInput.value = '1';
+      quantityInput.focus();
     }
-
-    function setupDataRefresh() {
-      // Actualizar datos cada hora si hay conexión
-      setInterval(() => {
-        if (navigator.onLine) {
-          fetchData();
-        }
-      }, 60 * 60 * 1000); // 60 minutos
+    
+    // Mostrar resultado con cantidad
+    function displayResultWithQuantity(rowData, quantity) {
+      let html = '<div class="result-item">';
+      
+      const headers = ["DOC", "REF", "LOT"];
+      const formattedDate = formatDate(new Date());
+      
+      html += `
+        <div class="result-row">
+          <div class="col-header">FECHA:</div>
+          <div>${formattedDate}</div>
+        </div>
+        <div class="result-row">
+          <div class="col-header">CANT:</div>
+          <div>${quantity}</div>
+        </div>
+      `;
+      
+      for (let i = 0; i < 3; i++) {
+        html += `
+          <div class="result-row">
+            <div class="col-header">${headers[i]}:</div>
+            <div>${rowData[i] || 'N/A'}</div>
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      resultsDiv.innerHTML = html;
     }
-
+    
+    // Mostrar resultado
     function displayResult(rowData) {
       let html = '<div class="result-item">';
+      
       const headers = ["DOC", "REF", "LOT"];
       
       for (let i = 0; i < 3; i++) {
@@ -317,39 +373,66 @@
       html += '</div>';
       resultsDiv.innerHTML = html;
     }
-
+    
+    // Mostrar error
     function showError(barcode) {
       resultsDiv.innerHTML = `
-        <div class="error">
-          CÓDIGO NO ENCONTRADO: ${barcode}
+        <div class="result-item" style="border-left-color: var(--danger);">
+          <div class="result-row">
+            <div style="color: var(--danger); font-weight: 600;">CÓDIGO NO ENCONTRADO:</div>
+          </div>
+          <div class="result-row">
+            <div>${barcode}</div>
+          </div>
         </div>
       `;
     }
-
+    
+    // Mostrar loading
+    function showLoading() {
+      loadingOverlay.style.display = 'flex';
+    }
+    
+    // Ocultar loading
+    function hideLoading() {
+      loadingOverlay.style.display = 'none';
+    }
+    
+    // Formatear fecha
+    function formatDate(date) {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+    
+    // Sonido
     function playBeep(success) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
-        osc.type = "square";
+        osc.type = "sine";
         osc.frequency.value = success ? 800 : 400;
-        osc.connect(ctx.destination);
+        
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
         osc.start();
-        osc.stop(ctx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.stop(ctx.currentTime + 0.3);
       } catch (e) {
         console.log("Audio no soportado:", e);
       }
     }
-
-    // Service Worker para PWA (opcional pero recomendado)
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
-          console.log('ServiceWorker registrado con éxito:', registration.scope);
-        }).catch(error => {
-          console.log('Error al registrar ServiceWorker:', error);
-        });
-      });
-    }
+    
+    // Prevenir comportamientos no deseados
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('dblclick', (e) => e.preventDefault());
   </script>
 </body>
 </html>
