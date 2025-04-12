@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Lector PDA - Columnas A-E</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #0f0;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #scanner {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #barcode {
+      width: 100%;
+      padding: 15px;
+      font-size: 24px;
+      text-align: center;
+      background: #111;
+      color: #0f0;
+      border: none;
+      border-bottom: 2px solid #0f0;
+    }
+    #quantity {
+      display: none;
+      width: 100%;
+      padding: 15px;
+      font-size: 24px;
+      text-align: center;
+      background: #111;
+      color: #0ff;
+      border: none;
+      border-bottom: 2px solid #0ff;
+    }
+    #status {
+      padding: 10px;
+      text-align: center;
+      background: #222;
+      font-size: 16px;
+    }
+    #results {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .result-item {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #111;
+      border-left: 3px solid #0f0;
+    }
+    .result-row {
+      display: flex;
+      margin-bottom: 5px;
+    }
+    .col-header {
+      min-width: 80px;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    .error {
+      color: #f00;
+      text-align: center;
+      padding: 15px;
+    }
+    .data-stats {
+      text-align: center;
+      padding: 5px;
+      color: #666;
+      font-size: 14px;
+      background: #222;
+    }
+    .loading {
+      color: #ff0;
+      text-align: center;
+      padding: 15px;
+    }
+    .offline-banner {
+      background: #f80;
+      color: #000;
+      text-align: center;
+      padding: 5px;
+      font-size: 12px;
+    }
+    .quantity-info {
+      text-align: center;
+      padding: 5px;
+      color: #0ff;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="scanner">
+    <div id="offline-banner" class="offline-banner" style="display: none;">MODO OFFLINE - DATOS CACHEADOS</div>
+    <input type="text" id="barcode" autofocus placeholder="ESCANEAR CÓDIGO">
+    <input type="number" id="quantity" placeholder="INGRESE CANTIDAD" min="1" step="1">
+    <div id="status">INICIANDO SISTEMA...</div>
+    <div class="data-stats" id="data-stats">Cargando datos...</div>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    // Configuración
+    const CONFIG = {
+      API_URL: "https://script.google.com/macros/s/AKfycbwQwSPIhOhoPcGHjAW5VOXNQISI9Y-mqk31lXCr3E8XA0Nt72CsVbngPKZ0VJcPA4ZygA/exec",
+      CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
+      VERSION: "1.0.0"
+    };
+
+    // Variables globales
+    let database = [];
+    let currentItem = null;
+    const barcodeInput = document.getElementById('barcode');
+    const quantityInput = document.getElementById('quantity');
+    const statusDiv = document.getElementById('status');
+    const resultsDiv = document.getElementById('results');
+    const dataStats = document.getElementById('data-stats');
+    const offlineBanner = document.getElementById('offline-banner');
+
+    // Iniciar aplicación
+    document.addEventListener('DOMContentLoaded', () => {
+      const cachedData = getCachedData();
+      
+      if (cachedData) {
+        database = cachedData.data;
+        updateUIWithCachedData(cachedData);
+        
+        if (!navigator.onLine) {
+          offlineBanner.style.display = 'block';
+        }
+      }
+      
+      if (navigator.onLine) {
+        fetchData();
+      } else {
+        statusDiv.textContent = "MODO OFFLINE - USANDO DATOS CACHEADOS";
+      }
+      
+      setupEventListeners();
+      setupDataRefresh();
+    });
+
+    // Funciones principales
+    function getCachedData() {
+      const cache = localStorage.getItem('pdaScannerCache');
+      if (!cache) return null;
+      
+      try {
+        const parsed = JSON.parse(cache);
+        if (Date.now() - parsed.timestamp > CONFIG.CACHE_TTL) return null;
+        return parsed;
+      } catch (e) {
+        console.error("Error al parsear cache:", e);
+        return null;
+      }
+    }
+
+    async function fetchData() {
+      statusDiv.textContent = "ACTUALIZANDO DATOS...";
+      dataStats.textContent = "Conectando con el servidor...";
+      
+      try {
+        const response = await fetch(CONFIG.API_URL + '?t=' + Date.now());
+        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+        
+        const apiData = await response.json();
+        let processedData = [];
+        
+        if (apiData.data && Array.isArray(apiData.data)) {
+          processedData = apiData.data.map(item => [item.columnaA, item.columnaG, item.columnaI]);
+        } else if (Array.isArray(apiData)) {
+          processedData = apiData;
+        } else {
+          throw new Error('Formato de datos desconocido');
+        }
+        
+        database = processedData;
+        cacheData(processedData);
+        
+        statusDiv.textContent = "SISTEMA ACTUALIZADO Y LISTO";
+        dataStats.textContent = `${database.length} registros cargados (${new Date().toLocaleTimeString()})`;
+        resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
+        offlineBanner.style.display = 'none';
+      } catch (error) {
+        console.error("Error al actualizar datos:", error);
+        
+        if (database.length === 0) {
+          statusDiv.innerHTML = '<span class="error">ERROR AL CARGAR DATOS</span>';
+          dataStats.textContent = error.message;
+          resultsDiv.innerHTML = `<div class="error">No se pudo cargar la base de datos: ${error.message}</div>`;
+        } else {
+          statusDiv.textContent = "SISTEMA LISTO (DATOS NO ACTUALIZADOS)";
+          dataStats.textContent = `${database.length} registros (versión cacheada)`;
+          offlineBanner.style.display = 'block';
+        }
+      }
+    }
+
+    function setupEventListeners() {
+      // Foco persistente
+      function enforceFocus() {
+        const activeElement = document.activeElement;
+        if (activeElement !== barcodeInput && activeElement !== quantityInput) {
+          if (quantityInput.style.display === 'block') {
+            quantityInput.focus();
+          } else {
+            barcodeInput.focus();
+          }
+        }
+        setTimeout(enforceFocus, 50);
+      }
+      enforceFocus();
+      
+      // Detectar escaneo
+      barcodeInput.addEventListener('input', function() {
+        const code = this.value.trim();
+        if (code.length < 3) return;
+        
+        const startTime = Date.now();
+        const result = database.find(row => row[0] && row[0].toString() === code);
+        const searchTime = Date.now() - startTime;
+        
+        if (result) {
+          currentItem = result;
+          displayResult(result);
+          requestQuantity();
+          playBeep(true);
+          statusDiv.textContent = `REGISTRO ENCONTRADO (${searchTime}ms)`;
+        } else {
+          showError(code);
+          playBeep(false);
+          statusDiv.textContent = `NO ENCONTRADO (${searchTime}ms)`;
+        }
+        
+        setTimeout(() => {
+          this.value = '';
+          this.focus();
+        }, 50);
+      });
+      
+      // Manejar entrada de cantidad
+      quantityInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          confirmQuantity();
+        } else if (e.key === 'Escape') {
+          cancelQuantity();
+        }
+      });
+      
+      // Bloquear interacciones no deseadas
+      document.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (quantityInput.style.display === 'block') {
+          quantityInput.focus();
+        } else {
+          barcodeInput.focus();
+        }
+      }, true);
+      
+      // Manejar cambios en la conexión
+      window.addEventListener('online', () => {
+        fetchData();
+        offlineBanner.style.display = 'none';
+      });
+      
+      window.addEventListener('offline', () => {
+        offlineBanner.style.display = 'block';
+        statusDiv.textContent = "MODO OFFLINE - USANDO DATOS CACHEADOS";
+      });
+    }
+
+    function requestQuantity() {
+      barcodeInput.style.display = 'none';
+      quantityInput.style.display = 'block';
+      quantityInput.value = '1';
+      quantityInput.focus();
+      quantityInput.select();
+    }
+
+    function confirmQuantity() {
+      const quantity = parseInt(quantityInput.value) || 1;
+      
+      // Aquí puedes hacer algo con la cantidad y el item actual
+      // Por ejemplo, agregar a un listado o enviar a un servidor
+      console.log('Item:', currentItem, 'Cantidad:', quantity);
+      
+      // Mostrar confirmación
+      resultsDiv.innerHTML = `
+        <div class="result-item">
+          ${displayResultHTML(currentItem)}
+          <div class="result-row">
+            <div class="col-header">CANTIDAD:</div>
+            <div>${quantity}</div>
+          </div>
+          <div class="quantity-info">Cantidad registrada correctamente</div>
+        </div>
+      `;
+      
+      // Volver al modo de escaneo
+      resetToScanMode();
+      playBeep(true);
+    }
+
+    function cancelQuantity() {
+      resetToScanMode();
+      resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
+    }
+
+    function resetToScanMode() {
+      quantityInput.style.display = 'none';
+      barcodeInput.style.display = 'block';
+      barcodeInput.focus();
+      currentItem = null;
+    }
+
+    function displayResult(rowData) {
+      resultsDiv.innerHTML = `
+        <div class="result-item">
+          ${displayResultHTML(rowData)}
+          <div class="quantity-info">Ingrese la cantidad y presione ENTER</div>
+        </div>
+      `;
+    }
+
+    function displayResultHTML(rowData) {
+      const headers = ["DOC", "REF", "LOT"];
+      let html = '';
+      
+      for (let i = 0; i < 3; i++) {
+        html += `
+          <div class="result-row">
+            <div class="col-header">${headers[i]}:</div>
+            <div>${rowData[i] || 'N/A'}</div>
+          </div>
+        `;
+      }
+      
+      return html;
+    }
+
+    function showError(barcode) {
+      resultsDiv.innerHTML = `
+        <div class="error">
+          CÓDIGO NO ENCONTRADO: ${barcode}
+        </div>
+      `;
+    }
+
+    function playBeep(success) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = "square";
+        osc.frequency.value = success ? 800 : 400;
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+      } catch (e) {
+        console.log("Audio no soportado:", e);
+      }
+    }
+
+    // Resto de funciones (cacheData, updateUIWithCachedData, setupDataRefresh) igual que antes
+    function cacheData(data) {
+      const cache = {
+        data: data,
+        timestamp: Date.now(),
+        version: CONFIG.VERSION
+      };
+      
+      try {
+        localStorage.setItem('pdaScannerCache', JSON.stringify(cache));
+      } catch (e) {
+        console.error("Error al guardar en cache:", e);
+        if (e.name === 'QuotaExceededError') {
+          clearOldCache();
+          cacheData(data);
+        }
+      }
+    }
+
+    function updateUIWithCachedData(cachedData) {
+      const lastUpdated = new Date(cachedData.timestamp).toLocaleString();
+      statusDiv.textContent = "SISTEMA LISTO";
+      dataStats.textContent = `${cachedData.data.length} registros (última actualización: ${lastUpdated})`;
+      resultsDiv.innerHTML = '<div class="loading">Escanea un código para comenzar</div>';
+    }
+
+    function setupDataRefresh() {
+      setInterval(() => {
+        if (navigator.onLine) {
+          fetchData();
+        }
+      }, 60 * 60 * 1000);
+    }
+  </script>
+</body>
+</html>
