@@ -47,7 +47,7 @@
     }
     
     #barcode {
-      width: 100%;
+      width: auto;
       padding: 18px 15px;
       font-size: 20px;
       text-align: center;
@@ -397,7 +397,7 @@
         if (code.length < 3) return;
         
         const startTime = Date.now();
-        const result = database.find(item => item.columnaA && item.columnaA.toString() === code);
+        const result = database.find(item => item.documento && item.documento.toString() === code);
         const searchTime = Date.now() - startTime;
         
         if (result) {
@@ -430,7 +430,7 @@
     function displayFullResult(item) {
       resultsDiv.innerHTML = `
         <div class="result-item">
-          ${displayItemData(item, 'Detalles del Documento')}
+          ${displayItemData(item, 'Fecha y Hora')}
         </div>
       `;
     }
